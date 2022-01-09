@@ -1,11 +1,34 @@
 import os
 import shutil
 
+# Jak dziala program?
+# Program przerabia pliki MODULE robota ABB, w ktorych zamieszczone sa rutyny z instrukcjami ruchu
+# i deklaracjami punktow na osobne pliki z samymi rutynami.
+# W rutynach, nazwy punktow sa posegregowane i nazwane wg klucza LHP_XXX
+# Instrukcje ruchu maja uporzadkowana kolejnosc wedlug kolejnosci wystepowania
+# Zakomentowane instrukcje ruchu nie podlegaja zmianom
+# Kazdy punkt jest unikatowy i nie wystepuje podwojnie w rutynie po wykonaniu programu
+#
+# Opis procesu
+# 1. Pobranie programu i wczytanie wszystkich linii do tabeli lines
+# 2. Wyodrebnienie plikow z rutynami
+# 3. Utworzenie dictionary z globalnymi punktami w module
+# 4. Rutyna: Wyodrebnienie robtargetow i do dictionary i tabel z punktami uzywanymi i zakomentowanymi w programie
+# 5. Rutyna: Zmiana nazw punktow w instrukcjach ruchu na wspolrzedne
+# 6. Rutyna: Usuniecie starych robtargetow z pliku
+# 7. Rutyna: Tworzenie tabel nowych robtargetow z wlasciwa nazwa na podstawie kolejnosci wystepowania instrukcji ruchu
+#            oraz zapisanie nowo utworzonej nazwy punktu w instrukcji ruchu
+#            (np. z postaci MoveJ [[X,Y,Z],...]], vSchnell...; => Movej LHP_000, vSchenll...;)
+# 8. Rutyna: Modyfikacje linii programu rutyny do ostatecznej postaci i zapis pliku
+
+
 # Tworzenie listy plików z katalogu "ABB_todo"
 input_files = os.listdir("ABB_todo")
 
 # Wykonaj operacje dla każdego pliku z listy input_files
 for input_todo in range(len(input_files)):
+
+
 
     # Wczytanie pliku z katalogu (w kolejnosci input_todo)
     plik = open("ABB_todo/"+str(input_files[input_todo]), encoding='windows-1250')
@@ -17,11 +40,18 @@ for input_todo in range(len(input_files)):
     except OSError as error:
         print("Nie mozna utworzyc katalogu! ")
 
+    # ____________________________________________________________
+    #                           1
+    # ____________________________________________________________
+
     # Wczytanie linii pliku do tabeli "lines"
     lines = plik.readlines()
     zapis = False  # inicjalizacja flagi zezwolenia na zapis linii do nowego pliku
     robtarget_GL = {}  # inicjalizacja dictionary z globalnymi punktami (key - nazwa punktu, value: wspolrzedne)
 
+    # ____________________________________________________________
+    #                           2
+    # ____________________________________________________________
     # Wykonaj operacje dla kazdego elementu tabeli lines (linie programu)
     for i in range(len(lines)):
         # Sprawdzenie czy aktualna linia posiada definicje procedury ("PROC")
@@ -45,6 +75,10 @@ for input_todo in range(len(input_files)):
         if zapis:
             namefile.write(lines[i])
         # Jesli nie ma zezwolenia na zapis
+
+        # ____________________________________________________________
+        #                           3
+        # ____________________________________________________________
         else:
             # Tworzenie dictionary dla punktow globalnych modulu
             # Wykorzystujemy aktualna petle aby zmniejszyc ilosc operacji
@@ -68,6 +102,10 @@ for input_todo in range(len(input_files)):
         print("current: " + str(temp_todo[TODO]))   # To jest zbedne. Pokazuje w konsoli aktualnie obrabiany plik
         lines = []      # Inicjalizacja i czyszczenie tabeli
         newlines = []   # Inicjalizacja i czyszczenie tabeli
+
+        # ____________________________________________________________
+        #                           4
+        # ____________________________________________________________
 
         # Praca nad plikiem z rutyna
         # Odczyt pliku z aktualna rutyna
@@ -124,12 +162,16 @@ for input_todo in range(len(input_files)):
                     # Tworzenie nazwy na podstawie indeksow
                     mov = i[indeks + 6:indeks2]  # '6' bo 'MoveJ' ma 5 znakow plus spacja (czyli 6)
                     if "!" in i[:indeks + 1]:    # Jesli instrukcja jest zakomentowana ("!")
-                        move_delete.append(mov)  # Dodaj wspolrzedne to tabeli punktow do usuniecia
+                        move_delete.append(mov)  # Dodaj wspolrzedne do tabeli punktow do usuniecia
                     else:                        # Jesli instrukcja nie jest zakomentowana
                         move.append(mov)         # Dodaj wspolrzedne do tabeli punktow uzywanych
 
         # Wczytaj plik rutyny z opcja zapisu ("ABB_done/nazwa modulu/nazwa rutyny")
         plik = open("ABB_done/" + str(input_files[input_todo])+"/"+str(temp_todo[TODO]), "w", encoding='windows-1250')
+
+        # ____________________________________________________________
+        #                           5
+        # ____________________________________________________________
 
         # Zmiana nazw punktow na wspolrzedne
         # do postaci MoveX [[X,Y,Z],...]]
@@ -162,14 +204,18 @@ for input_todo in range(len(input_files)):
                     # part1 - MoveJ lub MoveL
                     # part2 - wspolrzedne punktu w postaci [[X,Y,Z]...]]
                     # part3 - pozostala czesc instrukcji ruchu
-                    # MoveJ LHP_535, vSchnell, z100, nomtcp1\WObj:=BS_1606_1A;
-                    # | 1 ||   2   | |                3                      |
+                    # MoveJ [[X,Y,Z],...]], vSchnell, z100, nomtcp1\WObj:=BS_1606_1A;
+                    # | 1 | |     2      ||                 3                       |
                     lines[i] = part1 + part2 + part3
 
             # Zapisz zmodyfikowane linie do pliku
             plik.write(lines[i])
         # Zamknij plik
         plik.close()
+
+        # ____________________________________________________________
+        #                           6
+        # ____________________________________________________________
 
         # usuwanie starych robtargetów z pliku
         # Wszystkie instrukcje ruchu nie maja juz nazw punktow tylko wspolrzedne
@@ -182,6 +228,10 @@ for input_todo in range(len(input_files)):
             # Jesli nie ma robtarget, to zapisz dana linie do nowej tabeli
             else:
                 newlines.append(lines[i])
+
+        # ____________________________________________________________
+        #                           7
+        # ____________________________________________________________
 
         # Tworzenie nowych robtargetow
         # Sprawdzajac po kolei kazda linie programu, sprawdzamy czy posiada ona instrukcje ruchu
@@ -228,6 +278,10 @@ for input_todo in range(len(input_files)):
                     LHP.append(coord)
                     # Numer punktu zwiekszany o 5
                     LHPV += 5
+
+        # ____________________________________________________________
+        #                           8
+        # ____________________________________________________________
 
         # Zapisywanie gotowego pliku
         # Otwieranie pliku rutyny "ABB_done/nazwa_modulu/nazwa_rutyny"
